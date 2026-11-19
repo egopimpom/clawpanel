@@ -1,3 +1,5 @@
+import { imageSource } from './chat-media.js'
+
 /**
  * Markdown 渲染器 - 轻量级，支持代码高亮
  * 从 clawapp 移植，去掉 MEDIA 路径处理
@@ -236,17 +238,28 @@ function renderTable(rows) {
 }
 
 function inlineFormat(text) {
+  const pattern = /!\[([^\]]*)\]\(([^)]+)\)/g
+  const images = []
+  const withPlaceholders = text.replace(/[\x01\x02]/g, '').replace(pattern, (_, alt, rawSource) => {
+    const src = rawSource.trim()
+    const safe = imageSource(src)
+    const local = /^blob:https?:\/\//i.test(src) || /^[A-Za-z]:[\\/]/.test(src) ||
+      /^(?!\/\/)[^:\\\x00-\x1f]+$/.test(src)
+    const imageUrl = safe || local ? resolveImageSrc(safe || src) : ''
+    images.push(`<img${imageUrl ? ` src="${escapeHtml(imageUrl)}"` : ''} alt="${escapeHtml(alt)}" class="msg-img" loading="lazy" decoding="async" referrerpolicy="no-referrer">`)
+    return `\x01${images.length - 1}\x02`
+  })
+  const html = formatInlineText(withPlaceholders)
+  return images.length ? html.replace(/\x01(\d+)\x02/g, (_, index) => images[index]) : html
+}
+
+function formatInlineText(text) {
   return text
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/__(.+?)__/g, '<strong>$1</strong>')
     // 避免 (?<!\w) 负向后查找：旧版 Safari / 部分 WebView 会报 invalid group specifier name
     .replace(/(^|[^A-Za-z0-9_])_(.+?)_(?![A-Za-z0-9_])/g, '$1<em>$2</em>')
-    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, src) => {
-      const safeSrc = resolveImageSrc(src.trim())
-      const escapedSrc = escapeHtml(src).replace(/\\/g, '&#x5c;')
-      return `<img src="${safeSrc}" alt="${alt}" class="msg-img" onerror="this.onerror=null;this.style.display='none';this.insertAdjacentHTML('afterend','<span style=\\'color:var(--text-tertiary);font-size:12px\\'>[图片无法加载: ${escapedSrc}]</span>')" />`
-    })
     .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, label, url) => {
       const safe = /^https?:|^mailto:/i.test(url.trim()) ? url : '#'
       return `<a href="${safe}" target="_blank" rel="noopener">${label}</a>`

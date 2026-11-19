@@ -1,3 +1,4 @@
+import { agentAvatar } from '../src/lib/chat-media.js'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
@@ -205,6 +206,7 @@ function chatRenderHarness() {
     removeItem: k => store.delete(k),
   }
   const context = vm.createContext({
+    agentAvatar,
     console, localStorage, store, t: key => key,
     // chat.js 的 import 行在沙箱里被剥离，这里显式注入分组模块的纯函数
     groupSessions, extractSessionRows, isInvalidParamsError, shortenSessionLabel,
@@ -223,6 +225,7 @@ function chatRenderHarness() {
     _gatewayOfficialRequested = false;
     _sessionKey = 'agent:main:main';
     globalThis.api = {
+      avatars: (agents) => { _chatAgents = new Map(agents.map(agent => [agent.id, agent])) },
       render: (rows) => { renderSessionList(rows); return _sessionListEl.innerHTML },
       html: () => _sessionListEl.innerHTML,
       setMode: (m) => { setSessionViewMode(m); renderSessionList(_lastSessionRows) },
@@ -296,4 +299,20 @@ test('渲染：视图模式与折叠状态写入 localStorage 并可恢复', () 
   assert.ok(html.includes('aria-expanded="false"'), '折叠后分组头标记为已折叠')
   api.toggleGroup('owner:orchestrator')
   assert.deepEqual([...api.collapsed()], [])
+})
+
+test('会话列表：分组和全部视图均保留 Agent 头像及回退首字母', () => {
+  const api = chatRenderHarness()
+  api.avatars([
+    { id: 'coder', identity: { avatarUrl: 'https://example.test/coder.png' } },
+    { id: 'orchestrator', identity: { avatarUrl: 'https://example.test/owner.png' } },
+  ])
+  const grouped = api.render(liveRows)
+  assert.match(grouped, /chat-agent-avatar/)
+  assert.match(grouped, /owner\.png/)
+  assert.match(grouped, /coder\.png/)
+  assert.match(grouped, />M<\/span>/)
+  api.setMode('all')
+  assert.match(api.html(), /coder\.png/)
+  assert.doesNotMatch(api.html(), /owner\.png/)
 })

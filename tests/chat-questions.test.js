@@ -1,3 +1,4 @@
+import { collectChatImages, isImagePath, mergeChatImages, chatImageFingerprint } from '../src/lib/chat-media.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -202,6 +203,7 @@ test('过期或已由其他客户端处理后关闭卡片，不继续提交', as
 function chatHarness() {
   const clock = fakeClock(), messages = [], saved = [], bubbles = []
   const context = vm.createContext({
+    collectChatImages, isImagePath, mergeChatImages, chatImageFingerprint,
     ChatQuestions, clock, messages, saved, bubbles, console,
     t: key => key, uuid: () => 'id', renderMarkdown: text => text,
     saveMessage: msg => saved.push(msg),

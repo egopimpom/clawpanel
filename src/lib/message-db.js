@@ -31,6 +31,18 @@ function openDB() {
   })
 }
 
+// Keep the optional cache bounded; the Gateway remains the source of truth.
+function cacheAttachments(attachments) {
+  if (!Array.isArray(attachments)) return undefined
+  let remaining = 4 * 1024 * 1024
+  return attachments.slice(0, 16).map(attachment => {
+    const size = (attachment.content?.length || 0) + (attachment.url?.length || 0)
+    if (size > remaining) return { category: 'image', omitted: true, fileName: attachment.fileName }
+    remaining -= size
+    return attachment
+  })
+}
+
 export async function saveMessage(message) {
   if (!message || !message.id) return
   try {
@@ -41,6 +53,7 @@ export async function saveMessage(message) {
       sessionKey: message.sessionKey || '',
       role: message.role || 'assistant',
       content: message.content || message.text || '',
+      attachments: cacheAttachments(message.attachments),
       timestamp: message.timestamp || Date.now(),
       sync: true
     })
@@ -62,6 +75,7 @@ export async function saveMessages(messages) {
         sessionKey: msg.sessionKey || '',
         role: msg.role || 'assistant',
         content: msg.content || msg.text || '',
+        attachments: cacheAttachments(msg.attachments),
         timestamp: msg.timestamp || Date.now(),
         sync: true
       })
