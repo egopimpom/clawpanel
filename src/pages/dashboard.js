@@ -382,7 +382,7 @@ async function _loadDashboardDataInner(page, fullRefresh, loadSeq) {
   })
 
   const secondaryP = Promise.allSettled([
-    withTimeout(api.listAgents(), 5000),
+    withTimeout(api.listAgents(), 20000),
     withTimeout(api.readMcpConfig(), 5000),
     withTimeout(api.listBackups(), 5000),
     withTimeout(api.listConfiguredPlatforms(), 5000).catch(() => []),
